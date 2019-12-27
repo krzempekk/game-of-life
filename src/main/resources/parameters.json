@@ -1,0 +1,7 @@
+{
+  "width": 50,
+  "height": 50,
+  "surviveNeighbourCount": [2, 3],
+  "birthNeighbourCount": [3],
+  "stepPause": 200,
+}
