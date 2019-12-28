@@ -1,8 +1,7 @@
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
-public class Board {
+import java.util.*;
+
+public class Board implements IuiActionObserver {
     private Vector2D lowerLeft;
     private Vector2D upperRight;
     private Map<Vector2D, Cell> cells;
@@ -17,12 +16,6 @@ public class Board {
         this.lowerLeft = lowerLeft;
         this.upperRight = upperRight;
         this.cells = new HashMap<>();
-        for(int x = lowerLeft.x; x <= upperRight.x; x++) {
-            for(int y = lowerLeft.y; y <= upperRight.y; y++) {
-                Vector2D position = new Vector2D(x, y);
-                this.cells.put(position, new Cell(position, CellState.DEAD, this));
-            }
-        }
         this.birthNeighbourCount = birthNeighbourCount;
         this.surviveNeighbourCount = surviveNeighbourCount;
     }
@@ -38,40 +31,60 @@ public class Board {
     }
 
     public void setCellState(Vector2D position, CellState state) {
-        this.cells.get(position).setState(state);
+        Cell cellToChange = this.cells.get(position);
+        if(cellToChange == null) {
+            this.cells.put(position, new Cell(position, state, this));
+        } else {
+            this.cells.get(position).setState(state);
+        }
     }
 
     public CellState getCellState(Vector2D position) {
         if(position.precedes(this.lowerLeft) || position.follows(this.upperRight)) return CellState.DEAD;
         Cell cell = this.cells.get(position);
+        if(cell == null) return CellState.DEAD;
         return cell.getCurrentState();
     }
 
     public void reset() {
-        for(int x = this.lowerLeft.x; x <= this.upperRight.x; x++) {
-            for(int y = this.lowerLeft.y; y <= this.upperRight.y; y++) {
-                Vector2D position = new Vector2D(x, y);
-                this.cells.get(position).setState(CellState.DEAD);
-            }
-        }
+        this.cells.clear();
     }
 
     public void step() {
+        Set<Vector2D> candidatePositions = new HashSet<>();
+        for(Vector2D position: this.cells.keySet()) {
+            for(BoardDirection direction: BoardDirection.values()) {
+                Vector2D newPosition = position.add(direction.getUnitVector());
+                if(this.cells.get(newPosition) == null) {
+                    candidatePositions.add(newPosition);
+                }
+            }
+        }
+        for(Vector2D position: candidatePositions) {
+            this.cells.put(position, new Cell(position, CellState.DEAD, this));
+        }
         for(Cell cell: this.cells.values()) {
             cell.calculateNextState();
         }
         for(Cell cell: this.cells.values()) {
             cell.enterNextState();
         }
+        this.cells.values().removeIf(cell -> cell.getCurrentState() == CellState.DEAD);
     }
 
-    public void setRandomCellsAlive(int amount) {
-        for(int i = 0; i < amount; i++) {
-            Cell cell;
-            do {
-                cell = (Cell) this.cells.values().toArray()[this.randomInt(0, this.cells.size() - 1)];
-            } while(cell.getCurrentState() != CellState.DEAD);
-            cell.setState(CellState.ALIVE);
+
+
+    @Override
+    public void uiActionPerformed(uiActionType actionType, Object... args) {
+        switch (actionType) {
+            case STEP_SKIP:
+                for(int i = 0; i < (int) args[0]; i++) {
+                   this.step();
+                }
+                break;
+            case RESET:
+                this.reset();
+                break;
         }
     }
 }
